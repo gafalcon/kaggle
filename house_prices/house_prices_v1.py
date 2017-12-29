@@ -6,7 +6,6 @@ import seaborn as sns
 #%matplotlib
 df_train = pd.read_csv("./train.csv")
 df_test = pd.read_csv("./test.csv")
-y = df_train.SalePrice
 
 # Drop id
 df_train.drop("Id", axis=1, inplace=True)
@@ -162,6 +161,8 @@ dummies.drop(dummies_not_in_test, axis=1, inplace=True)
 
 df_train_prepared = df_train.join(dummies)
 df_train_prepared.drop(list(category.columns.values), axis=1, inplace=True)
+y = df_train.SalePrice
+df_train_prepared.drop(["SalePrice"], axis=1, inplace=True)
 df_test_prepared = df_test.join(dummies_test)
 df_test_prepared.drop(list(category.columns.values), axis=1, inplace=True)
 
@@ -170,3 +171,120 @@ df_test_prepared.drop(list(category.columns.values), axis=1, inplace=True)
 
 
 # TODO modelling
+from sklearn.linear_model import Ridge
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_squared_log_error
+import math
+from sklearn.model_selection import train_test_split
+from xgboost import XGBRegressor
+
+X_train, X_test, y_train, y_test = train_test_split(df_train_prepared, y, test_size=0.3)
+predictors = [Ridge(),
+              DecisionTreeRegressor(),
+              SVR(),
+              RandomForestRegressor(),
+              AdaBoostRegressor(),
+              GradientBoostingRegressor()]
+
+for predictor in predictors:
+    predictor.fit(X_train, y_train)
+    print (predictor.__class__, mean_squared_log_error(y_test, predictor.predict(X_test)))
+
+
+# Using cross validation
+
+from sklearn.model_selection import cross_val_score
+
+def cv_score(clf, X, y, n_splits=5):
+    # cv = ShuffleSplit(n_splits=n_splits, test_size=0.3, random_state=0)
+    scores = cross_val_score(clf, X, y, cv=n_splits, scoring='neg_mean_squared_log_error')
+    print(clf.__class__, "srmle: %0.5f , rmle: %0.5f (+/- %0.5f)" % (math.sqrt(abs(scores.mean())), scores.mean(), scores.std() * 2))
+    return abs(scores.mean())
+
+def perform_grid_search(clf, param_grid, X, y, cv=5):
+    grid_search = GridSearchCV(clf, param_grid, cv=cv, scoring='neg_mean_squared_log_error')
+    grid_search.fit(X, y)
+    print ("Best params", grid_search.best_params_)
+    return grid_search.best_estimator_
+
+def score(predictor, X, y):
+    msle = mean_squared_log_error(y, predictor.predict(X))
+    print (math.sqrt(msle), msle)
+
+for predictor in predictors:
+    cv_score(predictor, df_train_prepared, y)
+
+
+# Tuning hyperparams
+from sklearn.model_selection import GridSearchCV
+scores = {}
+ridge_param_grid = {
+    "alpha":[15,16, 17, 18, 19, 20] #Regularization strenght, higher alpha, more reg
+}
+ridge_regressor = perform_grid_search(Ridge(), ridge_param_grid, X_train, y_train)# df_train_prepared, y)
+scores["ridge"] = cv_score(ridge_regressor, df_train_prepared, y)
+
+
+tree_param_grid = {
+    "max_depth": [5, 7, 10, 20, 50, 100]
+}
+tree_regressor = perform_grid_search(DecisionTreeRegressor(), tree_param_grid, df_train_prepared, y)
+scores["tree"] = cv_score(tree_regressor, df_train_prepared, y)
+score(tree_regressor, X_test, y_test)
+
+rf_tree_param_grid = {
+    "max_depth": [8, 10,15, 20, 50, 100],
+    "n_estimators": [20, 50, 100, 150]
+}
+rf_tree_regressor = perform_grid_search(RandomForestRegressor(), rf_tree_param_grid, df_train_prepared, y)
+scores["rf"] = cv_score(rf_tree_regressor, df_train_prepared, y)
+
+ada_param_grid = {
+    "n_estimators":[20, 50, 70, 100, 150],
+    "learning_rate": [1, 10, 100, 0.1]
+}
+ada_regressor = perform_grid_search(AdaBoostRegressor(), ada_param_grid, df_train_prepared, y)
+scores["ada"] = cv_score(ada_regressor, df_train_prepared, y)
+
+gb_param_grid = {
+    "n_estimators": [10, 20, 50, 100, 150],
+    "max_depth": [5, 10, 20, 50, 100]
+}
+gb_regressor = perform_grid_search(GradientBoostingRegressor(), gb_param_grid, df_train_prepared, y)
+scores["gb"] = cv_score(gb_regressor, df_train_prepared, y)
+
+xgb_param_grid = {
+    "n_estimators": [10, 20, 50, 100, 150],
+    "max_depth": [5, 10, 20, 50, 100]
+}
+xgb_regressor = perform_grid_search(XGBRegressor(), xgb_param_grid, df_train_prepared, y)
+scores["xgb"] = cv_score(xgb_regressor, df_train_prepared, y)
+
+
+df = pd.read_csv('test.csv')
+house_id = df.Id
+def predict(clf, X_test, csv_name):
+    global house_id
+    predictions = clf.predict(X_test)
+    pred_df = pd.DataFrame()
+    pred_df["Id"] = house_id
+    pred_df["SalePrice"] = predictions
+    pred_df.to_csv(csv_name, index=False)
+
+predict(rf_tree_regressor, df_test_prepared, "prediction_rf_v1.csv")
+predict(xgb_regressor, df_test_prepared, "prediction_xgb_v2.csv")
+
+predictors = [ridge_regressor, tree_regressor, rf_tree_regressor, ada_regressor, gb_regressor, xgb_regressor]
+df = pd.DataFrame()
+for i,predictor in enumerate(predictors):
+    df[str(i)] = predictor.predict(df_test_prepared)
+
+
+df['SalePrice'] = df.mean(axis=1)
+df["Id"] = house_id
+df[["Id", "SalePrice"]].to_csv("prediction_avg_v3.csv", index=False)
+
