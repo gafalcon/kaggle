@@ -262,49 +262,31 @@ predict(ensembled_clf, df_stack_test, "predv9_stacking.csv")
 
 
 
+## Stacking with probabilities
+estimators = [("xgb", XGBClassifier()),
+              ("rf", RandomForestClassifier()),
+              ("ada", AdaBoostClassifier()),
+              ("gb",GradientBoostingClassifier()),
+              ("lr", LogisticRegression()),
+              ("dt", DecisionTreeClassifier()),
+              ("svc", SVC(probability=True))
+              ]
+
+Stack_train = {}
+Stack_test = {}
+for estimator in estimators:
+    estimator[1].fit(X_train, Y_train)
+    try:
+        Stack_train[estimator[0]] = estimator[1].predict_proba(X_test)[:, 0]
+        Stack_test[estimator[0]] = estimator[1].predict_proba(X_test_n)[:, 0]
+    except:
+        Stack_train[estimator[0]] = estimator[1].predict(X_test)
+        Stack_test[estimator[0]] = estimator[1].predict(X_test_n)
+
+df_stack_train = pd.DataFrame(Stack_train)
+df_stack_test = pd.DataFrame(Stack_test)
+ensembled_clf = perform_grid_search(XGBClassifier(), param_grid, df_stack_train, Y_test, cv=15)
+cv_score(ensembled_clf, df_stack_train, Y_test, n_splits=15)
+predict(ensembled_clf, df_stack_test, "predv10_stacking.csv")
 
 
-
-
-
-
-
-
-
-
-
-
-
-train_pred = pd.DataFrame({"xgb_n": xgb_clf.predict(X_train_n),
-                           "xgb_bin": xgb_clf_bins.predict(X_train_binned),
-                           "rf": rf_clf_n.predict(X_train_n),
-                           "rf_bins": rf_clf_bin.predict(X_train_binned)})
-
-ensembled_clf = perform_grid_search(XGBClassifier(), param_grid, train_pred, y, cv=15)
-cv_score(ensembled_clf, train_pred, y, n_splits=15)
-
-y_pred = pd.DataFrame({
-    "xgb_n": xgb_clf.predict(X_test_n),
-    "xgb_bin": xgb_clf_bins.predict(X_test_binned),
-    "rf": rf_clf_n.predict(X_test_n),
-    "rf_bins": rf_clf_bin.predict(X_test_binned)
-})
-
-predict(ensembled_clf, y_pred, "predv8_voting.csv")
-
-p_train = {}
-p_test = {}
-for estimator in estimators[2:]:
-    estimator[1].fit(X_train_n, y)
-    p_train[estimator[0]] = estimator[1].predict(X_train_n)
-    p_test[estimator[0]] = estimator[1].predict(X_test_n)
-p_train["xgb"] = xgb_clf.predict(X_train_n)
-p_train["rf_clf"] = rf_clf_n.predict(X_train_n)
-p_test["xgb"] = xgb_clf.predict(X_test_n)
-p_test["rf_clf"] = rf_clf_n.predict(X_test_n)
-
-df_p_train = pd.DataFrame(p_train)
-df_p_test = pd.DataFrame(p_test)
-ensembled_clf = perform_grid_search(XGBClassifier(), param_grid, df_p_train, y, cv=15)
-cv_score(ensembled_clf, df_p_train, y, n_splits=15)
-predict(ensembled_clf, df_p_test, "predv7_ensemble_xgb.csv")
