@@ -288,3 +288,14 @@ df['SalePrice'] = df.mean(axis=1)
 df["Id"] = house_id
 df[["Id", "SalePrice"]].to_csv("prediction_avg_v3.csv", index=False)
 
+
+from mlxtend.regressor import StackingCVRegressor
+from sklearn.linear_model import Lasso
+
+
+stack = StackingCVRegressor(regressors = (ridge_regressor, tree_regressor, rf_tree_regressor, ada_regressor, gb_regressor, xgb_regressor), meta_regressor = Ridge())
+cv_score(stack, df_train_prepared.values, y.values)
+
+stack.fit(df_train_prepared.values, y.values)
+predict(stack, df_test_prepared.values, "prediction_stack_v4.csv")
+
