@@ -48,7 +48,7 @@ df_train.drop(["GarageYrBlt"], axis=1, inplace=True)
 df_test.drop(["GarageYrBlt"], axis=1, inplace=True)
 
 # Cant see significative correlation between FireplaceQu and Saleprice, Gonna Delete it
-sns.violinplot(x="FireplaceQu", y="SalePrice", data=df_train)
+# sns.violinplot(x="FireplaceQu", y="SalePrice", data=df_train)
 
 df_train.drop(["FireplaceQu"], axis=1, inplace=True)
 df_test.drop(["FireplaceQu"], axis=1, inplace=True)
@@ -60,7 +60,7 @@ category = df_train.select_dtypes(exclude=[np.number])
 # Select columns with low correlation
 cors = numeric.corr()["SalePrice"]
 low_cor_columns = list(cors[abs(cors) < 0.2].index.values)
-sns.pairplot(numeric[low_cor_columns[4:8]+ ["SalePrice"]], dropna=True)
+# sns.pairplot(numeric[low_cor_columns[4:8]+ ["SalePrice"]], dropna=True)
 
 # Delete low correlated features
 df_train.drop(low_cor_columns, axis=1, inplace=True)
@@ -95,7 +95,7 @@ df_train.loc[:, ["GarageCond", "GarageType", "GarageQual", "GarageFinish"]] = df
 df_test.loc[:, ["GarageCond", "GarageType", "GarageQual", "GarageFinish"]] = df_test.loc[:, ["GarageCond", "GarageType", "GarageQual", "GarageFinish"]].fillna("NoGarage")
 
 # Delete bsmt features, keep BsmtFinType1 == "GLK", BsmtQual, BsmtCond, TotalBsmtSF
-sns.boxplot(x="BsmtFinType1", y="SalePrice", data=df_train)
+# sns.boxplot(x="BsmtFinType1", y="SalePrice", data=df_train)
 df_train["BsmtFinTpGLQ"] = 0
 df_train.loc[df_train.BsmtFinType1 == "GLQ", "BsmtFinTpGLQ"] = 1
 
@@ -112,8 +112,8 @@ df_test.loc[:, ["BsmtCond", "BsmtQual"]] = df_test.loc[:, ["BsmtCond", "BsmtQual
 
 # MasVnr
 df_train.MasVnrType.value_counts()  # None is most common by a lot
-sns.boxplot(x="MasVnrType", y="SalePrice", data=df_train) #There is difference between types
-sns.regplot("MasVnrArea", "SalePrice", data=df_train)
+# sns.boxplot(x="MasVnrType", y="SalePrice", data=df_train) #There is difference between types
+# sns.regplot("MasVnrArea", "SalePrice", data=df_train)
 df_train[["MasVnrArea", "SalePrice"]].corr() #0.45
 
 df_train["MasVnrType"].fillna("None", inplace=True)
@@ -182,6 +182,8 @@ import math
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 
+def rmsle(y_true, y_pred):
+    return math.sqrt(abs(mean_squared_log_error(y_true, y_pred)))
 X_train, X_test, y_train, y_test = train_test_split(df_train_prepared, y, test_size=0.3)
 predictors = [Ridge(),
               DecisionTreeRegressor(),
@@ -192,7 +194,7 @@ predictors = [Ridge(),
 
 for predictor in predictors:
     predictor.fit(X_train, y_train)
-    print (predictor.__class__, mean_squared_log_error(y_test, predictor.predict(X_test)))
+    print (predictor.__class__, rmsle(y_test, predictor.predict(X_test)))
 
 
 # Using cross validation
