@@ -141,3 +141,9 @@ print(all_data.shape)
 
 train = all_data[:ntrain]
 test = all_data[ntrain:]
+
+test["Id"] = test_id
+train["SalePrice"] = SalePrices
+
+test.to_csv("test_prepared.csv", index=False)
+train.to_csv("train_prepared.csv", index=False)
